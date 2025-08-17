@@ -35,6 +35,8 @@ module Fastlane
        
         client = Discordrb::Webhooks::Client.new(url: params[:webhook_url])
         client.execute do |builder|
+           builder.username   = params[:username]   if params[:username]
+          builder.avatar_url = params[:avatar_url] if params[:avatar_url]
           builder.add_embed do |embed|
             embed.title = params[:title]
             embed.description = params[:description]
@@ -78,6 +80,16 @@ module Fastlane
 
       def self.available_options
         [
+          FastlaneCore::ConfigItem.new(
+            key: :username,
+            optional: true,
+            description: "Override the username for this webhook message"
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :avatar_url,
+            optional: true,
+            description: "Override the avatar URL for this webhook message"
+          ),
           FastlaneCore::ConfigItem.new(
             key: :webhook_url,
             env_name: "DISCORD_WEBHOOK_URL",
