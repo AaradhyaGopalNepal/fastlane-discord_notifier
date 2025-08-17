@@ -2,59 +2,48 @@ require 'fastlane/action'
 require_relative '../helper/discord_notifier_helper'
 require 'discordrb/webhooks'
 
-
 module Fastlane
   module Actions
     class DiscordNotifierAction < Action
       def self.run(params)
-        
         UI.message("Notifying Discord")
 
-        
         color = params[:success] ? "4BB543" : "CC0000"
+        color = params[:color] unless params[:color].nil? || params[:color] == 0
 
-        unless params[:color].nil? || params[:color] == 0
-          color = params[:color]
-        end
-        
         begin
           user = Helper::DiscordUserHelper.findUser(params[:bot_token], params[:client_id], params[:discord_user_id])
           discord_avatar = user.avatar_url
         rescue => ex
           UI.important('Fetching user data failed. Continuing anyway...')
+          user = nil
         end
 
-        author_name = ENV['USER']
-        unless user.nil?
-          author_name = user.name
-        end
+        # Author name logic
+        author_name = params[:author_name] || (user.nil? ? ENV['USER'] : user.name)
 
+        # Use gravatar if provided
         unless params[:gravatar_email].nil? || params[:gravatar_email].empty?
           discord_avatar = Helper::DiscordUserHelper.gravatarImageUrl(params[:gravatar_email])
         end
-       
+
         client = Discordrb::Webhooks::Client.new(url: params[:webhook_url])
         client.execute do |builder|
-           builder.username   = params[:username]   if params[:username]
+          builder.username   = params[:username]   if params[:username]
           builder.avatar_url = params[:avatar_url] if params[:avatar_url]
           builder.add_embed do |embed|
             embed.title = params[:title]
             embed.description = params[:description]
-            embed.thumbnail = Discordrb::Webhooks::EmbedThumbnail.new(
-              url: params[:thumbnail_url]
-            )
-            embed.image = Discordrb::Webhooks::EmbedImage.new(
-              url: params[:image_url]
-            )
+            embed.thumbnail = Discordrb::Webhooks::EmbedThumbnail.new(url: params[:thumbnail_url])
+            embed.image = Discordrb::Webhooks::EmbedImage.new(url: params[:image_url])
             embed.author = Discordrb::Webhooks::EmbedAuthor.new(
               name: author_name,
               icon_url: discord_avatar
             )
             embed.colour = color
             embed.timestamp = Time.now
-          
-            params[:fields].each { |item|
 
+            params[:fields].each { |item|
               embed.add_field(name: item[:name], value: item[:value], inline: item[:inline])
             } unless params[:fields].nil?
           end
@@ -70,16 +59,19 @@ module Fastlane
       end
 
       def self.return_value
-        # If your method provides a return value, you can describe here what it does
       end
 
       def self.details
-        # Optional:
         ""
       end
 
       def self.available_options
         [
+          FastlaneCore::ConfigItem.new(
+            key: :author_name,
+            optional: true,
+            description: "Author name for the Discord embed (defaults to ENV['USER'] or Discord user if available)"
+          ),
           FastlaneCore::ConfigItem.new(
             key: :username,
             optional: true,
@@ -160,10 +152,6 @@ module Fastlane
       end
 
       def self.is_supported?(platform)
-        # Adjust this if your plugin only works for a particular platform (iOS vs. Android, for example)
-        # See: https://docs.fastlane.tools/advanced/#control-configuration-by-lane-and-by-platform
-        #
-        # [:ios, :mac, :android].include?(platform)
         true
       end
     end
